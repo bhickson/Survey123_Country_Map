@@ -1,0 +1,169 @@
+<html> <!-- Root tag is the container for all other elements -->
+
+	<head> <!-- Container for all elements that will affect the whole document (styles, scripts, information, etc. -->
+
+		<title>
+			International Education Week Map
+		</title>
+		
+		<style>
+			#map {
+				width: 100%;
+				height: 500px;
+				
+			}
+		</style>
+
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.3/leaflet.css" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fullPage.js/2.9.4/jquery.fullpage.min.css" />
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.3/leaflet.js"></script>
+		<script src='https://unpkg.com/@mapbox/leaflet-pip@latest/leaflet-pip.js'></script>   
+		<script src="https://unpkg.com/esri-leaflet@2.1.1/dist/esri-leaflet.js"></script>
+		
+		<script src="./javascript_packages/leaflet-src.js"></script>
+		<script type="text/javascript" src="./javascript_packages/leaflet.ajax.js"></script>
+		<script src="./javascript_packages/spin.js"></script>
+		<script src="./javascript_packages/leaflet.spin.js"></script>
+		
+				
+	</head>
+
+	<body>	<!-- Container for all conents of an html document (stuff you actually see) -->
+		<div id='map'>
+		</div>
+		
+		<script>
+			var wheight = window.innerHeight -30+ "px";
+			$('#map').css({height:wheight});
+		
+			var map = L.map('map', {
+				center: [25, 0],
+				zoom:2
+			});
+			
+			var Esri_WorldImagery = L.tileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+				attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+			});
+			Esri_WorldImagery.addTo(map);
+			
+			var whereFromFeatureLayerURL = "https://services1.arcgis.com/Ezk9fcjSUkeadg6u/ArcGIS/rest/services/survey123_c472308d46b24c5d8ab2fc846ce0ca0e/FeatureServer/0/query?where=1%3D1&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&resultType=none&distance=0.0&units=esriSRUnit_Meter&returnGeodetic=false&outFields=ObjectId&returnHiddenFields=false&returnGeometry=true&multipatchOption=xyFootprint&maxAllowableOffset=&geometryPrecision=&outSR=&datumTransformation=&returnIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&returnDistinctValues=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&having=&resultOffset=&resultRecordCount=&returnZ=false&returnM=false&returnExceededLimitFeatures=true&quantizationParameters=&sqlFormat=none&f=pgeojson"
+			
+			var whereVisitFeatureLayerURL = "https://services1.arcgis.com/Ezk9fcjSUkeadg6u/ArcGIS/rest/services/survey123_7b67e576d0224a369c212a598b140c03_fieldworker/FeatureServer/0/query?where=1%3D1&objectIds=&time=&geometry=&geometryType=esriGeometryEnvelope&inSR=&spatialRel=esriSpatialRelIntersects&resultType=none&distance=0.0&units=esriSRUnit_Meter&returnGeodetic=false&outFields=ObjectId&returnHiddenFields=false&returnGeometry=true&multipatchOption=xyFootprint&maxAllowableOffset=&geometryPrecision=&outSR=&datumTransformation=&returnIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&returnDistinctValues=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&having=&resultOffset=&resultRecordCount=&returnZ=false&returnM=false&returnExceededLimitFeatures=true&quantizationParameters=&sqlFormat=none&f=pgeojson"
+			
+			function polyStyle(clr) {
+				return {
+					weight: 1,
+					opacity: 1,
+					color:clr				
+				}
+			}
+						
+			var countries = new L.GeoJSON.AJAX("./geojson_files/countries3.geojson");
+			var fromActive = L.layerGroup().addTo(map);
+			var visitActive = L.layerGroup().addTo(map);
+			var bothActive = L.layerGroup().addTo(map);
+
+			var fromPoints = {};
+			var visitPoints = {};
+
+			var airplaneIcon = L.icon({
+				iconUrl: './icons/airplane.png',
+
+				iconSize: [20,20],
+			
+			});
+
+			window.onload = function() {
+			
+				window.setInterval(function() {
+				
+					numFromPoints = $.getJSON(whereFromFeatureLayerURL).done(function(data) {
+						$.each( data.features, function(index, value) {
+							var objectId = value.id
+							
+							if (! (objectId in fromPoints )) {
+								
+								lng = value.geometry.coordinates[0]
+								lat =  value.geometry.coordinates[1]
+								
+								fromPoints[objectId] = [lng,lat];
+								
+								var geoFeature = {
+									"type": "Feature",
+									"properties": {
+										"ObjectId": objectId
+									},
+									"geometry" : {
+										"type": "Point",
+										"coordinates":[lng, lat]
+									}
+								};
+								
+								var newPoint = L.geoJson(geoFeature).addTo(map);
+								
+								
+								var results = leafletPip.pointInLayer([lng, lat], countries);
+	
+								for (i=0; i < results.length; i++) {
+									var inmap = visitActive.hasLayer(results[i]);
+									if (!inmap) {
+										results[i].setStyle(polyStyle("white"));
+										results[i].setStyle({"className":"fromPoly"}).addTo(fromActive);
+										$(".leaflet-container path").animate({'stroke-dashoffset': 900}, 200)
+										$(".fromPoly").css({'fill': 'red', 'color':'white', 'stroke-opacity':0, 'fill-opacity':0.5, 'transition': 'fill 10s'});
+									} else {
+										visitActive.removeLayer(results[i]);
+                                                                                results[i].setStyle(polyStyle("grey"));
+                                                                                results[i].setStyle({"className":"bothPoly"}).addTo(bothActive);
+                                                                                $(".leaflet-container path").animate({'stroke-dashoffset': 900}, 200)
+                                                                                $(".bothPoly").css({'fill': '#bc42f4', 'color':'grey', 'stroke-opacity':0, 'fill-opacity':0.5, 'transition': 'fill 10s'});
+                                                                        }
+
+								};
+								
+								
+							}
+						});
+						
+						
+						
+					});
+					
+					numVisitPoints = $.getJSON(whereVisitFeatureLayerURL).done(function(data) {
+						$.each( data.features, function(index, value) {
+							var objectId = value.id
+							
+							if (! (objectId in visitPoints )) {
+								
+								lng = value.geometry.coordinates[0]
+								lat =  value.geometry.coordinates[1]
+								
+								visitPoints[objectId] = [lng,lat];
+								
+								var geoFeature = {
+									"type": "Feature",
+									"properties": {
+										"ObjectId": objectId
+									},
+									"geometry" : {
+										"type": "Point",
+										"coordinates":[lng, lat]
+									}
+									
+								};
+								
+								L.marker([lat, lng], {icon:airplaneIcon}).addTo(visitMap);
+												
+								
+							}
+						});
+						
+					})
+				}, 2000);
+			}
+		</script>
+		
+	</body>
+
+</html>
